@@ -1,0 +1,283 @@
+/* ==========================================================================
+   Tokens. Toda cor do app sai daqui — nada de hex solto em componente.
+   O modo escuro é escolhido passo a passo, não é inversão automática.
+   ========================================================================== */
+:root {
+  --surface-1: #fcfcfb;      /* superfície de card/gráfico */
+  --plane:     #f9f9f7;      /* fundo da página */
+  --ink:       #0b0b0b;
+  --ink-2:     #52514e;
+  --ink-muted: #898781;
+  --grid:      #e1e0d9;
+  --baseline:  #c3c2b7;
+  --serie:     #2a78d6;      /* série única dos gráficos */
+  --serie-sec: #86b6ef;
+  --bom:       #006300;      /* texto de variação favorável */
+  --ruim:      #d03b3b;      /* texto de variação desfavorável */
+  --alerta:    #b07400;
+  --borda:     #e6e5e0;
+  --sombra:    0 1px 2px rgba(11, 11, 11, .06), 0 4px 12px rgba(11, 11, 11, .04);
+  --raio:      14px;
+  --gutter:    16px;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-tema="claro"]) {
+    --surface-1: #1a1a19;
+    --plane:     #0d0d0d;
+    --ink:       #ffffff;
+    --ink-2:     #c3c2b7;
+    --ink-muted: #898781;
+    --grid:      #2c2c2a;
+    --baseline:  #383835;
+    --serie:     #3987e5;
+    --serie-sec: #1c5cab;
+    --bom:       #0ca30c;
+    --ruim:      #e66767;
+    --alerta:    #fab219;
+    --borda:     #2c2c2a;
+    --sombra:    0 1px 2px rgba(0, 0, 0, .4);
+  }
+}
+
+:root[data-tema="escuro"] {
+  --surface-1: #1a1a19; --plane: #0d0d0d; --ink: #ffffff; --ink-2: #c3c2b7;
+  --ink-muted: #898781; --grid: #2c2c2a; --baseline: #383835;
+  --serie: #3987e5; --serie-sec: #1c5cab; --bom: #0ca30c; --ruim: #e66767;
+  --alerta: #fab219; --borda: #2c2c2a; --sombra: 0 1px 2px rgba(0,0,0,.4);
+}
+
+* { box-sizing: border-box; }
+
+/* O atributo `hidden` só vale display:none pela folha do navegador, e perde
+   para qualquer display declarado no elemento. Sem isto o seletor de mês
+   aparecia nas telas que pedem para escondê-lo. */
+[hidden] { display: none !important; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+  background: var(--plane);
+  color: var(--ink);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+               "Helvetica Neue", Arial, sans-serif;
+  font-size: 16px;
+  line-height: 1.45;
+  -webkit-text-size-adjust: 100%;
+  overscroll-behavior-y: none;
+}
+
+body {
+  /* Respeita o notch e a barra de gestos do celular. */
+  padding-bottom: calc(64px + env(safe-area-inset-bottom));
+  min-height: 100vh;
+}
+
+/* ---------------------------------------------------------------- layout */
+.topo {
+  position: sticky; top: 0; z-index: 20;
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 12px;
+  padding: calc(10px + env(safe-area-inset-top)) var(--gutter) 10px;
+  background: color-mix(in srgb, var(--plane) 92%, transparent);
+  backdrop-filter: saturate(180%) blur(12px);
+  border-bottom: 1px solid var(--borda);
+}
+.topo h1 { font-size: 17px; font-weight: 650; margin: 0; letter-spacing: -.01em; }
+
+main { padding: var(--gutter); max-width: 720px; margin: 0 auto; }
+.tela { display: none; }
+.tela.ativa { display: block; animation: entra .18s ease-out; }
+@keyframes entra { from { opacity: 0; transform: translateY(4px); } }
+
+@media (prefers-reduced-motion: reduce) {
+  .tela.ativa { animation: none; }
+  * { transition: none !important; }
+}
+
+/* ----------------------------------------------------------------- card */
+.card {
+  background: var(--surface-1);
+  border: 1px solid var(--borda);
+  border-radius: var(--raio);
+  padding: 16px;
+  margin-bottom: 14px;
+  box-shadow: var(--sombra);
+}
+.card h2 {
+  font-size: 13px; font-weight: 600; text-transform: uppercase;
+  letter-spacing: .05em; color: var(--ink-muted);
+  margin: 0 0 12px;
+}
+.card h2 .sub { text-transform: none; letter-spacing: 0; font-weight: 400; }
+
+/* ---------------------------------------------------------- número herói */
+.heroi { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+.heroi .valor {
+  font-size: 34px; font-weight: 680; letter-spacing: -.025em;
+  font-variant-numeric: tabular-nums;
+}
+.delta { font-size: 14px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.delta.sobe { color: var(--ruim); }   /* gastar mais é ruim */
+.delta.desce { color: var(--bom); }
+.delta.neutro { color: var(--ink-muted); }
+
+.linha-meta {
+  display: flex; gap: 16px; flex-wrap: wrap;
+  margin-top: 10px; font-size: 13px; color: var(--ink-2);
+}
+.linha-meta b { font-variant-numeric: tabular-nums; color: var(--ink); font-weight: 600; }
+
+/* -------------------------------------------------------------- gráficos */
+.gfx { width: 100%; display: block; }
+.gfx-wrap { position: relative; }
+.dica {
+  position: absolute; pointer-events: none; z-index: 5;
+  background: var(--ink); color: var(--plane);
+  padding: 6px 9px; border-radius: 8px; font-size: 12px;
+  font-variant-numeric: tabular-nums; white-space: nowrap;
+  box-shadow: 0 4px 12px rgba(0,0,0,.2);
+  opacity: 0; transition: opacity .12s;
+}
+.dica.on { opacity: 1; }
+
+/* ---------------------------------------------------------------- listas */
+.lista { list-style: none; margin: 0; padding: 0; }
+.lista li {
+  display: flex; align-items: center; gap: 12px;
+  padding: 11px 0; border-bottom: 1px solid var(--grid);
+}
+.lista li:last-child { border-bottom: 0; }
+.lista .nome { flex: 1; min-width: 0; }
+.lista .nome b {
+  display: block; font-weight: 550; font-size: 15px;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.lista .nome small { color: var(--ink-muted); font-size: 12.5px; }
+.lista .cifra { font-variant-numeric: tabular-nums; font-weight: 600; white-space: nowrap; }
+
+.tag {
+  display: inline-block; font-size: 11px; padding: 2px 7px; border-radius: 999px;
+  background: var(--grid); color: var(--ink-2); font-weight: 600;
+  vertical-align: middle;
+}
+.tag.juros { background: color-mix(in srgb, var(--ruim) 16%, transparent); color: var(--ruim); }
+.tag.ia    { background: color-mix(in srgb, var(--alerta) 20%, transparent); color: var(--alerta); }
+
+/* --------------------------------------------------------------- inputs */
+label { display: block; font-size: 13px; font-weight: 600; color: var(--ink-2); margin: 12px 0 5px; }
+input, select, textarea, button {
+  font: inherit; color: inherit;
+}
+input[type="text"], input[type="number"], input[type="date"], input[type="search"],
+input[type="password"], input[type="month"], select, textarea {
+  width: 100%; padding: 11px 12px;
+  background: var(--plane); color: var(--ink);
+  border: 1px solid var(--borda); border-radius: 10px;
+  /* 16px evita o zoom automático do Safari ao focar o campo */
+  font-size: 16px;
+}
+input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-visible {
+  outline: 2px solid var(--serie); outline-offset: 2px;
+}
+textarea { min-height: 72px; resize: vertical; }
+
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  padding: 12px 16px; border-radius: 10px; border: 1px solid transparent;
+  background: var(--serie); color: #fff; font-weight: 620; font-size: 15px;
+  cursor: pointer; min-height: 46px; width: 100%;
+}
+.btn:disabled { opacity: .5; cursor: not-allowed; }
+.btn.sec { background: transparent; color: var(--ink); border-color: var(--borda); }
+.btn.perigo { background: transparent; color: var(--ruim); border-color: var(--ruim); }
+.btn-linha { display: flex; gap: 10px; margin-top: 14px; }
+
+.grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+@media (max-width: 380px) { .grid2 { grid-template-columns: 1fr; } }
+
+/* ------------------------------------------------------------- sugestões */
+.sugestao { display: flex; gap: 12px; padding: 13px 0; border-bottom: 1px solid var(--grid); }
+.sugestao:last-child { border-bottom: 0; }
+.sugestao .icone { font-size: 18px; line-height: 1.3; flex-shrink: 0; width: 22px; text-align: center; }
+.sugestao b { display: block; font-size: 15px; font-weight: 600; }
+.sugestao p { margin: 3px 0 0; font-size: 13.5px; color: var(--ink-2); }
+.sugestao.alta b { color: var(--ruim); }
+
+/* ------------------------------------------------------------- navegação */
+.nav {
+  position: fixed; bottom: 0; left: 0; right: 0; z-index: 30;
+  display: grid; grid-template-columns: repeat(5, 1fr);
+  background: color-mix(in srgb, var(--surface-1) 94%, transparent);
+  backdrop-filter: saturate(180%) blur(12px);
+  border-top: 1px solid var(--borda);
+  padding-bottom: env(safe-area-inset-bottom);
+}
+.nav a {
+  display: flex; flex-direction: column; align-items: center; gap: 2px;
+  padding: 9px 2px; text-decoration: none; color: var(--ink-muted);
+  font-size: 10.5px; font-weight: 600; min-height: 56px; justify-content: center;
+}
+.nav a[aria-current="page"] { color: var(--serie); }
+.nav .ic { font-size: 19px; line-height: 1; }
+
+/* ------------------------------------------------------------- utilidades */
+.vazio { text-align: center; color: var(--ink-muted); padding: 28px 12px; font-size: 14px; }
+.erro {
+  background: color-mix(in srgb, var(--ruim) 12%, transparent);
+  color: var(--ruim); border: 1px solid color-mix(in srgb, var(--ruim) 35%, transparent);
+  padding: 11px 13px; border-radius: 10px; font-size: 14px; margin-bottom: 12px;
+}
+.ok {
+  background: color-mix(in srgb, var(--bom) 12%, transparent);
+  color: var(--bom); border: 1px solid color-mix(in srgb, var(--bom) 35%, transparent);
+  padding: 11px 13px; border-radius: 10px; font-size: 14px; margin-bottom: 12px;
+}
+.carregando { text-align: center; padding: 26px; color: var(--ink-muted); font-size: 14px; }
+.spin {
+  display: inline-block; width: 15px; height: 15px; vertical-align: -2px;
+  border: 2px solid var(--grid); border-top-color: var(--serie);
+  border-radius: 50%; animation: gira .7s linear infinite;
+}
+@keyframes gira { to { transform: rotate(360deg); } }
+
+.tabela-rolagem { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+/* Em 390px quatro colunas de dinheiro não cabem: melhor rolar na horizontal
+   do que grudar os cabeçalhos e quebrar os números em duas linhas. */
+.tabela-rolagem table { min-width: 430px; }
+table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+th, td {
+  text-align: left; padding: 8px 12px 8px 0;
+  border-bottom: 1px solid var(--grid); white-space: nowrap;
+}
+th:first-child, td:first-child { white-space: normal; }
+th { color: var(--ink-muted); font-weight: 600; font-size: 12px; text-transform: uppercase; letter-spacing: .04em; }
+td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; padding-right: 0; }
+
+.sr {
+  position: absolute; width: 1px; height: 1px; overflow: hidden;
+  clip: rect(0 0 0 0); white-space: nowrap;
+}
+
+/* ----------------------------------------------------------------- login */
+.login-wrap {
+  min-height: 100vh; display: flex; align-items: center; justify-content: center;
+  padding: var(--gutter);
+}
+.login-card { width: 100%; max-width: 340px; text-align: center; }
+.login-card h1 { font-size: 21px; margin: 0 0 4px; }
+.login-card p { color: var(--ink-muted); font-size: 14px; margin: 0 0 18px; }
+#pin { text-align: center; letter-spacing: .5em; font-size: 26px; padding: 14px; }
+
+/* revisão de fatura / recibo */
+.revisao-item { border-bottom: 1px solid var(--grid); padding: 10px 0; }
+.revisao-item:last-child { border-bottom: 0; }
+.revisao-head { display: flex; gap: 10px; align-items: center; }
+.revisao-head .nome { flex: 1; min-width: 0; font-size: 14.5px; font-weight: 550;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.revisao-head select { width: auto; min-width: 128px; padding: 6px 8px; font-size: 13px; }
+.revisao-head .cifra { font-variant-numeric: tabular-nums; font-weight: 600; font-size: 14px; }
+.preview-foto {
+  width: 100%; max-height: 220px; object-fit: contain; border-radius: 10px;
+  background: var(--plane); margin-bottom: 12px;
+}

@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="pt-BR" data-tema="auto">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#2a78d6" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#1a1a19" media="(prefers-color-scheme: dark)">
+  <meta name="color-scheme" content="light dark">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="Gastos">
+  <meta name="robots" content="noindex, nofollow">
+  <title>Meus Gastos</title>
+  <link rel="manifest" href="/manifest.webmanifest">
+  <link rel="icon" href="{{ url_for('static', filename='icons/icone.svg') }}" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="{{ url_for('static', filename='icons/icone-180.png') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/app.css') }}">
+</head>
+<body>
+  <header class="topo">
+    <h1 id="titulo">Resumo</h1>
+    <div style="display:flex;gap:6px;align-items:center">
+      <div id="sel-mes" style="display:flex;gap:2px;align-items:center" hidden>
+        <button id="mes-ant" class="btn sec" aria-label="Mês anterior"
+                style="width:auto;min-height:34px;padding:4px 11px">‹</button>
+        <span id="rot-mes" style="font-size:13px;font-weight:600;min-width:104px;
+              text-align:center;color:var(--ink-2)"></span>
+        <button id="mes-prox" class="btn sec" aria-label="Próximo mês"
+                style="width:auto;min-height:34px;padding:4px 11px">›</button>
+      </div>
+      <button id="atualizar" class="btn sec" aria-label="Atualizar dados"
+              style="width:auto;min-height:34px;padding:4px 10px">⟳</button>
+    </div>
+  </header>
+
+  <main>
+    <div id="conteudo" class="tela ativa" role="main" aria-live="polite"></div>
+  </main>
+
+  <nav class="nav" aria-label="Navegação principal">
+    <a href="#/"><span class="ic" aria-hidden="true">◧</span>Resumo</a>
+    <a href="#/foto"><span class="ic" aria-hidden="true">⊕</span>Foto</a>
+    <a href="#/importar"><span class="ic" aria-hidden="true">⇩</span>Fatura</a>
+    <a href="#/historico"><span class="ic" aria-hidden="true">≡</span>Histórico</a>
+    <a href="#/insights"><span class="ic" aria-hidden="true">✦</span>Insights</a>
+  </nav>
+
+  <script type="module" src="{{ url_for('static', filename='js/app.js') }}"></script>
+</body>
+</html>

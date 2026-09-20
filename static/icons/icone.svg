@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Meus Gastos">
+  <rect width="512" height="512" rx="112" fill="#2a78d6"/>
+  <g fill="#ffffff">
+    <rect x="128" y="286" width="54" height="104" rx="12"/>
+    <rect x="229" y="222" width="54" height="168" rx="12"/>
+    <rect x="330" y="140" width="54" height="250" rx="12"/>
+  </g>
+</svg>
