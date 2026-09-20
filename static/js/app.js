@@ -1,11 +1,13 @@
 /* Roteador por hash + estado global mínimo. */
 import { api, limparCache, mesPorExtenso, mesVizinho } from "./api.js";
 import { dashboard, foto, importar, historico, insights } from "./screens.js";
+import { orcamento } from "./orcamento.js";
 
 const TELAS = {
   "": { titulo: "Resumo", montar: dashboard, seletorMes: true },
   "foto": { titulo: "Novo gasto", montar: foto, seletorMes: false },
   "importar": { titulo: "Importar fatura", montar: importar, seletorMes: false },
+  "orcamento": { titulo: "Orçamento", montar: orcamento, seletorMes: true },
   "historico": { titulo: "Histórico", montar: historico, seletorMes: false },
   "insights": { titulo: "Insights", montar: insights, seletorMes: true },
 };

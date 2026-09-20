@@ -43,6 +43,7 @@ create table if not exists public.gastos (
     parcela_total     smallint,
     moeda_origem      text,                       -- 'USD' em lançamento internacional
     valor_origem      numeric(12,2),              -- valor na moeda original
+    cartao            text,                       -- chave da linha de cartão no orçamento
     -- Chave de idempotência: reimportar a mesma fatura não duplica lançamento.
     hash_dedupe       text unique,
     criado_em         timestamptz not null default now(),
@@ -89,35 +90,81 @@ create table if not exists public.parcelas_futuras (
 );
 
 create index if not exists idx_parcelas_referencia on public.parcelas_futuras (referencia);
+create index if not exists idx_gastos_cartao on public.gastos (cartao, fatura_referencia)
+    where cartao is not null;
+
+-- ---------------------------------------------------------------------------
+-- ORÇAMENTO — o mesmo modelo da planilha "Controle Financeiro Pessoal":
+-- Saldo de Abertura + Receitas − Despesas Fixas − Cartões = Saldo Final,
+-- e o Saldo Final de um mês abre o mês seguinte.
+-- ---------------------------------------------------------------------------
+create table if not exists public.orcamento_linhas (
+    id    uuid primary key default gen_random_uuid(),
+    secao text not null check (secao in ('receita','fixa','cartao')),
+    nome  text not null check (length(nome) between 1 and 80),
+    -- slug estável: é por ele que um gasto aponta de qual cartão veio
+    chave text not null unique,
+    ordem smallint not null default 0,
+    ativo boolean not null default true
+);
+
+create index if not exists idx_orc_linhas_secao on public.orcamento_linhas (secao, ordem);
+
+create table if not exists public.orcamento_valores (
+    linha_id uuid not null references public.orcamento_linhas(id) on delete cascade,
+    mes      text not null check (mes ~ '^\d{4}-(0[1-9]|1[0-2])$'),
+    previsto numeric(14,2) not null default 0,
+    primary key (linha_id, mes)
+);
+
+create index if not exists idx_orc_valores_mes on public.orcamento_valores (mes);
+
+-- Saldo inicial do encadeamento (o único saldo digitado).
+create table if not exists public.orcamento_config (
+    chave text primary key,
+    valor text
+);
 
 -- ===========================================================================
 -- Segurança
 -- ===========================================================================
 
 -- service_role (o servidor Flask) é o único que opera as tabelas.
-grant all on public.gastos           to service_role;
-grant all on public.faturas          to service_role;
-grant all on public.parcelas_futuras to service_role;
+grant all on public.gastos            to service_role;
+grant all on public.faturas           to service_role;
+grant all on public.parcelas_futuras  to service_role;
+grant all on public.orcamento_linhas  to service_role;
+grant all on public.orcamento_valores to service_role;
+grant all on public.orcamento_config  to service_role;
 
 -- Ninguém mais. Chave anon vazada não lê nada.
-revoke all on public.gastos           from anon, authenticated;
-revoke all on public.faturas          from anon, authenticated;
-revoke all on public.parcelas_futuras from anon, authenticated;
+revoke all on public.gastos            from anon, authenticated;
+revoke all on public.faturas           from anon, authenticated;
+revoke all on public.parcelas_futuras  from anon, authenticated;
+revoke all on public.orcamento_linhas  from anon, authenticated;
+revoke all on public.orcamento_valores from anon, authenticated;
+revoke all on public.orcamento_config  from anon, authenticated;
 
 -- RLS ligada e sem policy: negação total para quem não for service_role.
-alter table public.gastos           enable row level security;
-alter table public.faturas          enable row level security;
-alter table public.parcelas_futuras enable row level security;
+alter table public.gastos            enable row level security;
+alter table public.faturas           enable row level security;
+alter table public.parcelas_futuras  enable row level security;
+alter table public.orcamento_linhas  enable row level security;
+alter table public.orcamento_valores enable row level security;
+alter table public.orcamento_config  enable row level security;
 
 -- Força a RLS inclusive para o dono da tabela (postgres), caso alguém
 -- se conecte direto com essa role.
-alter table public.gastos           force row level security;
-alter table public.faturas          force row level security;
-alter table public.parcelas_futuras force row level security;
+alter table public.gastos            force row level security;
+alter table public.faturas           force row level security;
+alter table public.parcelas_futuras  force row level security;
+alter table public.orcamento_linhas  force row level security;
+alter table public.orcamento_valores force row level security;
+alter table public.orcamento_config  force row level security;
 
 -- ===========================================================================
 -- Conferência rápida (deve devolver rowsecurity = true e 0 policies)
 -- ===========================================================================
 -- select tablename, rowsecurity from pg_tables
---  where schemaname = 'public' and tablename in ('gastos','faturas','parcelas_futuras');
+--  where schemaname = 'public' and tablename like any (array['gastos','faturas','parcelas%','orcamento%']);
 -- select tablename, policyname from pg_policies where schemaname = 'public';

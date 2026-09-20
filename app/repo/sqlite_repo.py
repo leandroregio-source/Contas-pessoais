@@ -29,6 +29,7 @@ CREATE TABLE IF NOT EXISTS gastos (
     parcela_total     INTEGER,
     moeda_origem      TEXT,
     valor_origem      REAL,
+    cartao            TEXT,          -- chave da linha de cartão no orçamento
     hash_dedupe       TEXT UNIQUE,
     criado_em         TEXT NOT NULL
 );
@@ -54,6 +55,28 @@ CREATE TABLE IF NOT EXISTS parcelas_futuras (
     valor_parcela  REAL NOT NULL,
     valor_restante REAL
 );
+
+CREATE TABLE IF NOT EXISTS orcamento_linhas (
+    id     TEXT PRIMARY KEY,
+    secao  TEXT NOT NULL,
+    nome   TEXT NOT NULL,
+    chave  TEXT NOT NULL UNIQUE,
+    ordem  INTEGER NOT NULL DEFAULT 0,
+    ativo  INTEGER NOT NULL DEFAULT 1
+);
+
+CREATE TABLE IF NOT EXISTS orcamento_valores (
+    linha_id TEXT NOT NULL REFERENCES orcamento_linhas(id) ON DELETE CASCADE,
+    mes      TEXT NOT NULL,
+    previsto REAL NOT NULL DEFAULT 0,
+    PRIMARY KEY (linha_id, mes)
+);
+CREATE INDEX IF NOT EXISTS idx_orc_valores_mes ON orcamento_valores(mes);
+
+CREATE TABLE IF NOT EXISTS orcamento_config (
+    chave TEXT PRIMARY KEY,
+    valor TEXT
+);
 """
 
 
@@ -66,6 +89,10 @@ class SQLiteRepo:
         self.caminho = caminho
         with self._conn() as conn:
             conn.executescript(_SCHEMA)
+            # Banco criado antes do orçamento não tem a coluna `cartao`.
+            colunas = {r[1] for r in conn.execute("PRAGMA table_info(gastos)")}
+            if "cartao" not in colunas:
+                conn.execute("ALTER TABLE gastos ADD COLUMN cartao TEXT")
 
     def _conn(self) -> sqlite3.Connection:
         conn = sqlite3.connect(self.caminho)
@@ -87,7 +114,7 @@ class SQLiteRepo:
             "id", "data", "estabelecimento", "valor", "categoria", "origem",
             "fatura_referencia", "tem_juros", "valor_juros", "criado_via",
             "observacoes", "parcela_atual", "parcela_total", "moeda_origem",
-            "valor_origem", "hash_dedupe", "criado_em",
+            "valor_origem", "cartao", "hash_dedupe", "criado_em",
         )
         sql = (
             f"INSERT OR IGNORE INTO gastos ({','.join(colunas)}) "
@@ -193,6 +220,92 @@ class SQLiteRepo:
                 dict(r)
                 for r in conn.execute("SELECT * FROM faturas ORDER BY referencia DESC")
             ]
+
+    # -- orçamento ---------------------------------------------------------
+    def listar_linhas_orcamento(self) -> list[dict]:
+        with self._conn() as conn:
+            linhas = [dict(r) for r in conn.execute(
+                "SELECT * FROM orcamento_linhas ORDER BY secao, ordem, nome")]
+        for l in linhas:
+            l["ativo"] = bool(l["ativo"])
+        return linhas
+
+    def criar_linha_orcamento(self, linha: dict) -> dict:
+        registro = {
+            "id": linha.get("id") or str(uuid.uuid4()),
+            "secao": linha["secao"], "nome": linha["nome"], "chave": linha["chave"],
+            "ordem": int(linha.get("ordem") or 0),
+            "ativo": 1 if linha.get("ativo", True) else 0,
+        }
+        with self._conn() as conn:
+            conn.execute(
+                "INSERT INTO orcamento_linhas (id,secao,nome,chave,ordem,ativo)"
+                " VALUES (:id,:secao,:nome,:chave,:ordem,:ativo)"
+                " ON CONFLICT(chave) DO UPDATE SET nome=excluded.nome,"
+                " secao=excluded.secao, ordem=excluded.ordem, ativo=excluded.ativo",
+                registro,
+            )
+            row = conn.execute(
+                "SELECT * FROM orcamento_linhas WHERE chave = ?", (registro["chave"],)
+            ).fetchone()
+        saida = dict(row)
+        saida["ativo"] = bool(saida["ativo"])
+        return saida
+
+    def atualizar_linha_orcamento(self, linha_id: str, campos: dict) -> dict | None:
+        permitidos = {"nome", "ordem", "ativo", "secao"}
+        limpos = {k: v for k, v in campos.items() if k in permitidos}
+        if not limpos:
+            return None
+        if "ativo" in limpos:
+            limpos["ativo"] = 1 if limpos["ativo"] else 0
+        sets = ", ".join(f"{k} = ?" for k in limpos)
+        with self._conn() as conn:
+            conn.execute(f"UPDATE orcamento_linhas SET {sets} WHERE id = ?",
+                         [*limpos.values(), linha_id])
+            row = conn.execute(
+                "SELECT * FROM orcamento_linhas WHERE id = ?", (linha_id,)).fetchone()
+        if not row:
+            return None
+        saida = dict(row)
+        saida["ativo"] = bool(saida["ativo"])
+        return saida
+
+    def remover_linha_orcamento(self, linha_id: str) -> bool:
+        with self._conn() as conn:
+            conn.execute("DELETE FROM orcamento_valores WHERE linha_id = ?", (linha_id,))
+            cur = conn.execute("DELETE FROM orcamento_linhas WHERE id = ?", (linha_id,))
+        return bool(cur.rowcount)
+
+    def listar_valores_orcamento(self, ano: int) -> list[dict]:
+        with self._conn() as conn:
+            return [dict(r) for r in conn.execute(
+                "SELECT * FROM orcamento_valores WHERE mes LIKE ?", (f"{ano:04d}-%",))]
+
+    def definir_valores_orcamento(self, itens: list[dict]) -> int:
+        if not itens:
+            return 0
+        with self._conn() as conn:
+            conn.executemany(
+                "INSERT INTO orcamento_valores (linha_id,mes,previsto) VALUES (?,?,?)"
+                " ON CONFLICT(linha_id,mes) DO UPDATE SET previsto=excluded.previsto",
+                [(i["linha_id"], i["mes"], float(i["previsto"])) for i in itens],
+            )
+        return len(itens)
+
+    def obter_config(self, chave: str) -> str | None:
+        with self._conn() as conn:
+            row = conn.execute(
+                "SELECT valor FROM orcamento_config WHERE chave = ?", (chave,)).fetchone()
+        return row["valor"] if row else None
+
+    def definir_config(self, chave: str, valor: str) -> None:
+        with self._conn() as conn:
+            conn.execute(
+                "INSERT INTO orcamento_config (chave,valor) VALUES (?,?)"
+                " ON CONFLICT(chave) DO UPDATE SET valor=excluded.valor",
+                (chave, valor),
+            )
 
     def ping(self) -> bool:
         try:

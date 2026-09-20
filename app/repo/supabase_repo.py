@@ -178,6 +178,77 @@ class SupabaseRepo:
             "GET", "/faturas", params={"select": "*", "order": "referencia.desc"}
         )
 
+    # -- orçamento ---------------------------------------------------------
+    def listar_linhas_orcamento(self) -> list[dict]:
+        return self._req(
+            "GET", "/orcamento_linhas",
+            params={"select": "*", "order": "secao.asc,ordem.asc,nome.asc"},
+        )
+
+    def criar_linha_orcamento(self, linha: dict) -> dict:
+        registro = {
+            "id": linha.get("id") or str(uuid.uuid4()),
+            "secao": linha["secao"], "nome": linha["nome"], "chave": linha["chave"],
+            "ordem": int(linha.get("ordem") or 0),
+            "ativo": bool(linha.get("ativo", True)),
+        }
+        criados = self._req(
+            "POST", "/orcamento_linhas?on_conflict=chave", json=[registro],
+            headers={"Prefer": "return=representation,resolution=merge-duplicates"},
+        )
+        return criados[0] if criados else registro
+
+    def atualizar_linha_orcamento(self, linha_id: str, campos: dict) -> dict | None:
+        permitidos = {"nome", "ordem", "ativo", "secao"}
+        limpos = {k: v for k, v in campos.items() if k in permitidos}
+        if not limpos:
+            return None
+        linhas = self._req(
+            "PATCH", "/orcamento_linhas", params={"id": f"eq.{linha_id}"},
+            json=limpos, headers={"Prefer": "return=representation"},
+        )
+        return linhas[0] if linhas else None
+
+    def remover_linha_orcamento(self, linha_id: str) -> bool:
+        linhas = self._req(
+            "DELETE", "/orcamento_linhas", params={"id": f"eq.{linha_id}"},
+            headers={"Prefer": "return=representation"},
+        )
+        return bool(linhas)
+
+    def listar_valores_orcamento(self, ano: int) -> list[dict]:
+        return self._req(
+            "GET", "/orcamento_valores",
+            params={"select": "*", "mes": f"like.{ano:04d}-*"},
+        )
+
+    def definir_valores_orcamento(self, itens: list[dict]) -> int:
+        if not itens:
+            return 0
+        self._req(
+            "POST", "/orcamento_valores?on_conflict=linha_id,mes",
+            json=[
+                {"linha_id": i["linha_id"], "mes": i["mes"], "previsto": float(i["previsto"])}
+                for i in itens
+            ],
+            headers={"Prefer": "resolution=merge-duplicates"},
+        )
+        return len(itens)
+
+    def obter_config(self, chave: str) -> str | None:
+        linhas = self._req(
+            "GET", "/orcamento_config",
+            params={"select": "valor", "chave": f"eq.{chave}", "limit": "1"},
+        )
+        return linhas[0]["valor"] if linhas else None
+
+    def definir_config(self, chave: str, valor: str) -> None:
+        self._req(
+            "POST", "/orcamento_config?on_conflict=chave",
+            json=[{"chave": chave, "valor": valor}],
+            headers={"Prefer": "resolution=merge-duplicates"},
+        )
+
     def ping(self) -> bool:
         try:
             self._req("GET", "/gastos", params={"select": "id", "limit": "1"})

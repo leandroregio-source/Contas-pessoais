@@ -60,6 +60,11 @@ def meta():
             "mes_atual": an.mes_atual(),
             "backend": "supabase" if Config.usa_supabase() else "sqlite",
             "ia_disponivel": Config.tem_claude(),
+            "cartoes": [
+                {"chave": l["chave"], "nome": l["nome"]}
+                for l in get_repo().listar_linhas_orcamento()
+                if l["secao"] == "cartao" and l.get("ativo", True)
+            ],
         }
     )
 
@@ -267,11 +272,14 @@ def fatura_confirmar():
         return jsonify({"erro": "Nenhum lançamento para salvar."}), 400
 
     referencia = (payload.get("referencia") or "").strip()
+    # Qual cartão originou esta fatura — liga o import à linha do orçamento.
+    cartao = (payload.get("cartao") or "").strip()[:40] or None
+
     permitidos = {
         "data", "estabelecimento", "valor", "categoria", "origem",
         "fatura_referencia", "tem_juros", "valor_juros", "criado_via",
         "observacoes", "parcela_atual", "parcela_total", "moeda_origem",
-        "valor_origem", "hash_dedupe",
+        "valor_origem", "cartao", "hash_dedupe",
     }
     limpos = []
     for bruto in lancamentos:
@@ -282,10 +290,22 @@ def fatura_confirmar():
         linha["origem"] = "cartao"
         if referencia:
             linha["fatura_referencia"] = referencia
+        if cartao:
+            linha["cartao"] = cartao
         limpos.append(linha)
 
     if not limpos:
         return jsonify({"erro": "Lançamentos inválidos."}), 400
+
+    if cartao:
+        # Sem isto, uma compra igual no mesmo dia em dois cartões diferentes
+        # seria descartada como duplicata na segunda fatura importada.
+        import hashlib
+
+        for linha in limpos:
+            linha["hash_dedupe"] = hashlib.sha256(
+                f"{cartao}|{linha['hash_dedupe']}".encode()
+            ).hexdigest()[:32]
 
     repo = get_repo()
     resultado = repo.inserir_gastos(limpos)

@@ -74,6 +74,13 @@ export const api = {
       body: JSON.stringify(dados),
     }));
   },
+  async put(caminho, dados) {
+    return tratar(await fetch(caminho, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(dados),
+    }));
+  },
   async patch(caminho, dados) {
     return tratar(await fetch(caminho, {
       method: "PATCH",

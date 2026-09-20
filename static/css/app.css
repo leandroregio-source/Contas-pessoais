@@ -207,7 +207,9 @@ textarea { min-height: 72px; resize: vertical; }
 /* ------------------------------------------------------------- navegação */
 .nav {
   position: fixed; bottom: 0; left: 0; right: 0; z-index: 30;
-  display: grid; grid-template-columns: repeat(5, 1fr);
+  /* Conta os itens sozinha: acrescentar uma aba não pode quebrar a barra
+     em duas linhas, como aconteceu quando o Orçamento virou a sexta. */
+  display: grid; grid-auto-flow: column; grid-auto-columns: 1fr;
   background: color-mix(in srgb, var(--surface-1) 94%, transparent);
   backdrop-filter: saturate(180%) blur(12px);
   border-top: 1px solid var(--borda);
@@ -215,8 +217,9 @@ textarea { min-height: 72px; resize: vertical; }
 }
 .nav a {
   display: flex; flex-direction: column; align-items: center; gap: 2px;
-  padding: 9px 2px; text-decoration: none; color: var(--ink-muted);
-  font-size: 10.5px; font-weight: 600; min-height: 56px; justify-content: center;
+  padding: 9px 1px; text-decoration: none; color: var(--ink-muted);
+  font-size: 10px; font-weight: 600; min-height: 56px; justify-content: center;
+  text-align: center; line-height: 1.15; overflow: hidden;
 }
 .nav a[aria-current="page"] { color: var(--serie); }
 .nav .ic { font-size: 19px; line-height: 1; }
@@ -281,3 +284,84 @@ td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; padding-
   width: 100%; max-height: 220px; object-fit: contain; border-radius: 10px;
   background: var(--plane); margin-bottom: 12px;
 }
+
+/* ======================================================= orçamento ======= */
+.orc-linhas { margin-bottom: 4px; }
+
+.orc-linha {
+  display: grid;
+  grid-template-columns: 1fr 124px;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--grid);
+}
+/* Cartão tem uma terceira coluna: o realizado da fatura importada. */
+[data-secao="cartao"] .orc-linha { grid-template-columns: 1fr 112px 80px; }
+[data-secao="cartao"] .orc-nome { white-space: normal; line-height: 1.25; }
+
+.orc-linha:last-child { border-bottom: 0; }
+
+.orc-nome {
+  font-size: 14px; color: var(--ink-2);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+
+.orc-campo { display: flex; align-items: center; gap: 4px; }
+.orc-sinal { color: var(--ink-muted); font-size: 13px; width: 9px; }
+
+.orc-input {
+  width: 100%; padding: 7px 9px; text-align: right;
+  font-variant-numeric: tabular-nums; font-size: 15px;
+  border: 1px solid var(--borda); border-radius: 8px;
+  background: var(--plane); color: var(--ink);
+}
+.orc-input.salvando { border-color: var(--serie); }
+.orc-input.invalido { border-color: var(--ruim); }
+
+.orc-dif { text-align: right; font-size: 11.5px; }
+.orc-dif .dif { font-weight: 650; }
+/* Gastar mais que o previsto é ruim; menos é bom. Seta + número sempre,
+   a cor só reforça. */
+.orc-dif .dif.acima { color: var(--ruim); }
+.orc-dif .dif.abaixo { color: var(--bom); }
+.orc-dif .dif.ok { color: var(--ink-muted); }
+.orc-dif .dif-na { color: var(--ink-muted); }
+
+.orc-total {
+  display: flex; justify-content: space-between; align-items: baseline;
+  padding-top: 10px; margin-top: 4px;
+  border-top: 2px solid var(--baseline);
+  font-size: 14px;
+}
+.orc-total b { font-variant-numeric: tabular-nums; font-size: 16px; font-weight: 680; }
+
+/* grade anual */
+table.grade { min-width: 900px; font-size: 12.5px; }
+table.grade td, table.grade th { padding: 6px 10px 6px 0; }
+table.grade tr.secao td {
+  font-size: 11px; font-weight: 700; text-transform: uppercase;
+  letter-spacing: .04em; color: var(--ink-muted);
+  padding-top: 14px; border-bottom: 1px solid var(--baseline);
+}
+table.grade tr.secao td:first-child { overflow: visible; }
+table.grade tr.forte td { font-weight: 680; color: var(--ink); }
+table.grade tbody tr:not(.secao):hover td { background: var(--grid); }
+/* A primeira coluna fica fixa: rolando 12 meses na horizontal, sem isso
+   não dá para saber qual linha se está lendo. */
+table.grade td:first-child, table.grade th:first-child {
+  position: sticky; left: 0; z-index: 1;
+  background: var(--surface-1); padding-right: 14px;
+  /* Nome em uma linha só: quebrando em três, cada linha da grade ficava com
+     a altura de um parágrafo e a tabela virava um rolo. */
+  white-space: nowrap; max-width: 150px;
+  overflow: hidden; text-overflow: ellipsis;
+}
+table.grade tr.secao td:first-child { background: var(--surface-1); }
+
+@media (max-width: 380px) {
+  .orc-linha { grid-template-columns: 1fr 104px; }
+  [data-secao="cartao"] .orc-linha { grid-template-columns: 1fr 100px 72px; }
+  .nav a { font-size: 9px; }
+}
+table.grade th.foco { color: var(--serie); }

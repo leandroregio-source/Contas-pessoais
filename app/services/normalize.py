@@ -92,6 +92,7 @@ def normalizar_gasto(payload: dict, criado_via: str = "manual") -> dict:
         "parcela_total": _inteiro(payload.get("parcela_total")),
         "moeda_origem": None,
         "valor_origem": None,
+        "cartao": _texto(payload.get("cartao"), 40) or None,
     }
     gasto["hash_dedupe"] = hashlib.sha256(
         f"{via}|{data_iso}|{estabelecimento.lower()}|{valor:.2f}|{gasto['id']}".encode()
@@ -137,6 +138,8 @@ def normalizar_edicao(payload: dict) -> dict:
         campos["parcela_atual"] = _inteiro(payload["parcela_atual"])
     if "parcela_total" in payload:
         campos["parcela_total"] = _inteiro(payload["parcela_total"])
+    if "cartao" in payload:
+        campos["cartao"] = _texto(payload["cartao"], 40) or None
     if not campos:
         raise DadoInvalido("Nada para atualizar.")
     return campos

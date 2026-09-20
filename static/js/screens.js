@@ -280,10 +280,21 @@ export function importar(estado, alvo) {
           <input type="month" id="ref" value="${esc(estado.mes)}">
         </div>
         <div>
-          <label for="senha">Senha do PDF (se houver)</label>
-          <input type="password" id="senha" autocomplete="off">
+          <label for="cartao">Cartão</label>
+          <select id="cartao">
+            <option value="">— não informar —</option>
+            ${(estado.meta.cartoes || []).map((c) =>
+              `<option value="${esc(c.chave)}">${esc(c.nome)}</option>`).join("")}
+          </select>
         </div>
       </div>
+      <label for="senha">Senha do PDF (se houver)</label>
+      <input type="password" id="senha" autocomplete="off">
+      ${(estado.meta.cartoes || []).length ? `
+        <p style="font-size:12.5px;color:var(--ink-muted);margin:6px 0 0">
+          Informar o cartão liga esta fatura à linha correspondente do
+          orçamento — o previsto passa a ser comparado com o valor real.
+        </p>` : ""}
       <label style="display:flex;align-items:center;gap:8px;margin-top:12px">
         <input type="checkbox" id="usar-ia" checked style="width:auto"
                ${estado.meta.ia_disponivel ? "" : "disabled"}>
@@ -310,6 +321,8 @@ export function importar(estado, alvo) {
     fd.append("usar_ia", $("#usar-ia", alvo).checked ? "1" : "0");
     try {
       const d = await api.enviarArquivo("/api/fatura/analisar", fd);
+      d.cartao = $("#cartao", alvo).value || null;
+      d.cartao_nome = $("#cartao", alvo).selectedOptions[0]?.text || "";
       msg.innerHTML = d.aviso_ia ? `<div class="erro">${esc(d.aviso_ia)}</div>` : "";
       revisaoFatura(estado, $("#imp-revisao", alvo), d);
       $("#imp-revisao", alvo).scrollIntoView({ behavior: "smooth", block: "start" });
@@ -330,7 +343,8 @@ function revisaoFatura(estado, alvo, d) {
 
   alvo.innerHTML = `
     <div class="card">
-      <h2>Prévia · ${esc(r.referencia)}</h2>
+      <h2>Prévia · ${esc(r.referencia)}${
+        d.cartao ? ` · <span class="sub">${esc(d.cartao_nome)}</span>` : ""}</h2>
       <div class="linha-meta" style="margin-top:0">
         <span>Extraído <b>${brl(r.total_extraido)}</b></span>
         ${r.total != null ? `<span>Fatura diz <b>${brl(r.total)}</b></span>` : ""}
@@ -414,6 +428,7 @@ function revisaoFatura(estado, alvo, d) {
     try {
       const res = await api.post("/api/fatura/confirmar", {
         referencia: d.resumo.referencia,
+        cartao: d.cartao,
         lancamentos: escolhidos,
         resumo: d.resumo,
         parcelas_futuras: d.parcelas_futuras,

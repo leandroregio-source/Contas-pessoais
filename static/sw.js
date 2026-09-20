@@ -13,6 +13,7 @@ const CASCA = [
   "/static/js/api.js",
   "/static/js/charts.js",
   "/static/js/screens.js",
+  "/static/js/orcamento.js",
   "/static/icons/icone.svg",
   "/manifest.webmanifest",
 ];

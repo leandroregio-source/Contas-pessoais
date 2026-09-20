@@ -19,10 +19,12 @@ def create_app(config_override: dict | None = None) -> Flask:
     )
 
     from app.api import api
+    from app.api_orcamento import api_orc
     from app.views import views
 
     app.register_blueprint(views)
     app.register_blueprint(api)
+    app.register_blueprint(api_orc)
 
     # O service worker precisa estar na raiz para controlar todo o escopo do app.
     @app.get("/sw.js")

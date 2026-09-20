@@ -23,6 +23,7 @@ Celular (PWA)  ──►  Flask  ──►  Supabase (Postgres + RLS)
 | **Resumo** | Total do mês, variação contra o mês anterior, evolução de 6 meses, gasto por categoria, maiores gastos |
 | **Foto** | Fotografa a nota/recibo → Claude lê → você confere → salva. Também lança manual |
 | **Fatura** | Sobe o PDF da fatura do Itaú → prévia editável → confirma. Reimportar não duplica |
+| **Orçamento** | O orçamento mensal da planilha, dentro do app: saldo, receitas, despesas fixas e cartões — com previsto **e** realizado |
 | **Histórico** | Todos os lançamentos, filtráveis por período, categoria, origem e busca |
 | **Insights** | Sugestões de economia, juros pagos, assinaturas recorrentes, categorias em alta, parcelas já comprometidas |
 
@@ -37,6 +38,52 @@ chamada em lote**, nunca uma por linha.
 
 **2. Nada é salvo sem conferência.** Foto e fatura sempre passam por uma tela de
 revisão. Leitura errada salva em silêncio é pior que leitura que falha.
+
+### Orçamento: o que a planilha fazia, e o que ela não fazia
+
+O modelo é o mesmo da planilha `Controle Financeiro Pessoal`:
+
+```
+   Saldo de Abertura        ← Saldo Final do mês anterior
+(+) Receitas
+(−) Despesas Fixas
+(−) Cartões de Crédito
+────────────────────────────
+   Total de Saídas   = fixas + cartões
+   Resultado do Mês  = receitas − saídas
+   Saldo Final       = abertura + resultado   → abre o mês seguinte
+```
+
+O que muda é que cada linha passa a ter **previsto × realizado**. O previsto é
+digitado, como na planilha. O realizado vem dos gastos que já estão no banco —
+e nas linhas de cartão vem direto da fatura importada, valor exato, sem
+redigitação. O botão *"Usar os valores das faturas importadas"* joga o realizado
+para dentro do previsto de uma vez.
+
+Duas escolhas que valem explicar:
+
+- **O mês de um gasto de cartão é o da FATURA, não o da compra.** Uma compra de
+  28/08 que cai na fatura de setembro pertence a setembro — é quando o dinheiro
+  sai da conta, e é assim que a planilha sempre tratou.
+- **Cartão sem lançamento no mês aparece como "—", não como R$ 0.** "Fatura
+  ainda não importada" e "não gastei nada" são coisas diferentes; mostrar zero
+  exibiria uma economia que não aconteceu. Pelo mesmo motivo, linhas como
+  *Energia Elétrica* não têm realizado: não existe vínculo 1-para-1 entre a
+  linha e um gasto do banco, e um número que parece medido sem ser é pior que
+  nenhum número.
+
+Importe sua planilha de uma vez (idempotente — rodar de novo sobrescreve o
+mesmo ano):
+
+```bash
+pip install openpyxl
+python scripts/importar_planilha.py Contas_pessoais.xlsx --simular   # confere
+python scripts/importar_planilha.py Contas_pessoais.xlsx             # grava
+```
+
+Ele lê a estrutura pelo conteúdo (acha o cabeçalho Jan..Dez e segue os
+marcadores de seção), não por número de linha fixo, então continua funcionando
+se você acrescentar linhas à planilha.
 
 ### Juros em destaque
 
@@ -81,7 +128,12 @@ projeto no Supabase.
 2. Rode `supabase/schema.sql` inteiro no **SQL Editor**.
 3. Copie a URL e a chave `service_role` (Settings → API) para o `.env`.
 
-O schema cria `gastos`, `faturas` e `parcelas_futuras` com índices e
+Se você já tinha rodado o `schema.sql` antes do orçamento existir, rode também
+`supabase/migration_002_orcamento.sql`. Em banco novo, o `schema.sql` sozinho
+já cria tudo — não rode os dois.
+
+O schema cria `gastos`, `faturas`, `parcelas_futuras`, `orcamento_linhas`,
+`orcamento_valores` e `orcamento_config` com índices e
 **RLS ligada sem nenhuma policy** — mais os `GRANT`s revogados de `anon` e
 `authenticated`. Traduzindo: mesmo que a chave pública vaze, ela lê zero linha.
 Quem opera o banco é só o servidor, com a `service_role`. Quem autentica a
@@ -113,20 +165,27 @@ app/
   services/
     itau_fatura.py       parser da fatura           ← regra pura, testada
     analytics.py         agregações e sugestões     ← regra pura, testada
+    orcamento.py         orçamento mensal           ← regra pura, testada
     normalize.py         validação de entrada       ← regra pura, testada
     pdf_text.py          PDF → texto (pdfplumber)
     claude_extract.py    visão (recibo) + categoria em lote
+scripts/
+  importar_planilha.py   carrega a planilha .xlsx para dentro do orçamento
 static/
-  js/{app,api,screens,charts}.js    ES modules, sem framework
+  js/{app,api,screens,charts,orcamento}.js   ES modules, sem framework
   css/app.css            tokens de cor, claro e escuro
   sw.js                  service worker
-supabase/schema.sql
-tests/                   47 testes, sem rede
+supabase/
+  schema.sql                    banco novo: roda só este
+  migration_002_orcamento.sql   banco que já existia antes do orçamento
+tests/                   72 testes, sem rede
 ```
 
 **Toda regra de negócio vive em `app/services/*` como função pura** — recebe
-dados, devolve dados, não toca em rede nem banco. É o que permite os 47 testes
-rodarem em 0,3 s e o que mantém a lógica verificável.
+dados, devolve dados, não toca em rede nem banco. É o que permite os 72 testes
+rodarem em menos de 1 s e o que mantém a lógica verificável. Os testes do
+orçamento conferem os resultados contra os números da planilha real, célula a
+célula (saldo final de dezembro, total de saídas do ano, encadeamento mês a mês).
 
 ```bash
 python -m pytest tests/ -q
