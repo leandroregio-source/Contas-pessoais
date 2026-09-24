@@ -5,14 +5,19 @@ cartão Itaú (PDF)**, **Pix**, **débito** e **dinheiro** — agrupando por cat
 comparando mês a mês e apontando onde dá para economizar.
 
 Projeto **isolado**: não tem nenhuma relação com sistemas de laboratório/ERP.
-Banco Supabase próprio, credenciais próprias.
+Dados próprios, credenciais próprias.
 
 ```
-Celular (PWA)  ──►  Flask  ──►  Supabase (Postgres + RLS)
-                      │
-                      └──►  API da Anthropic  (só foto de recibo e
-                                                fallback de categoria)
+Navegador / celular (PWA)  ──►  Flask  ──►  SQLite no seu Mac      (padrão)
+                                  │         ou Supabase/Postgres   (opcional)
+                                  │
+                                  └──►  API da Anthropic
+                                        (só foto de recibo e fallback
+                                         de categoria — o resto é regex)
 ```
+
+Roda inteiro no seu Mac, sem nuvem e sem conta em lugar nenhum. O Supabase é
+opcional, para quando você quiser os mesmos dados em mais de um aparelho.
 
 ---
 
@@ -95,20 +100,44 @@ juros no mês e no ano.
 
 ---
 
-## Rodando
+## Rodando no Mac (caminho rápido)
 
 ```bash
-git clone <este-repo> && cd financas-pessoais
-python3 -m venv .venv && source .venv/bin/activate
-pip install -r requirements.txt
-
-cp .env.example .env     # preencha (veja abaixo)
-python run.py            # http://localhost:5000
+git clone https://github.com/leandroregio-source/Contas-pessoais
+cd Contas-pessoais
+./iniciar.command
 ```
 
-Sem `SUPABASE_URL`/`SUPABASE_SERVICE_KEY` o app usa **SQLite local**
-(`financas.sqlite3`) automaticamente. Serve para experimentar antes de criar o
-projeto no Supabase.
+Ou simplesmente **clique duas vezes em `iniciar.command`** no Finder.
+
+Na primeira vez ele cria o ambiente, instala tudo, pergunta um PIN e — se
+houver um `.xlsx` na pasta — importa seu orçamento sozinho. Depois abre o
+navegador. Da segunda vez em diante sobe em dois segundos, sem perguntar nada.
+
+Para parar: `Ctrl+C` na janela. Para usar no celular, o script imprime o
+endereço da rede local (mesmo Wi-Fi).
+
+Roda com o Python que já vem no macOS (3.9+). Se faltar:
+`brew install python`.
+
+**Onde ficam os dados:** num arquivo `financas.sqlite3` dentro da pasta, só no
+seu Mac. Nada sai daí. O `.gitignore` já protege esse arquivo, o `.env` e
+qualquer `.xlsx`/`.pdf` que você deixar na pasta — nenhum deles vai para o
+GitHub.
+
+Guarde uma cópia desse arquivo de vez em quando; é todo o seu histórico.
+
+### Se preferir na mão
+
+```bash
+python3 -m venv .venv && source .venv/bin/activate
+pip install -r requirements.txt openpyxl
+cp .env.example .env          # preencha SECRET_KEY e APP_PIN
+python run.py                 # http://localhost:5000
+```
+
+Com `SUPABASE_URL` vazio o app usa SQLite local automaticamente — é o modo
+padrão e não exige nada além do que está acima.
 
 ### Variáveis (`.env`)
 
@@ -122,7 +151,11 @@ projeto no Supabase.
 | `ANTHROPIC_MODEL` | Padrão `claude-opus-5` |
 | `COOKIE_SECURE` | `1` quando servir por HTTPS |
 
-### Supabase
+### Supabase (opcional, só se quiser sincronizar entre aparelhos)
+
+Não é necessário para usar o app. O SQLite local dá conta de tudo; o Supabase
+serve para o dia em que você quiser os mesmos dados no Mac e no celular sem
+depender de um estar ligado.
 
 1. Crie um projeto pessoal novo (o plano gratuito basta).
 2. Rode `supabase/schema.sql` inteiro no **SQL Editor**.
@@ -141,10 +174,14 @@ pessoa é o PIN do Flask.
 
 ### Instalar no celular
 
-Abra a URL no navegador do celular → **Adicionar à tela de início**. Vira app
-com ícone próprio, tela cheia e acesso à câmera. Para usar fora de casa é
-preciso servir por HTTPS (o service worker e a câmera exigem contexto seguro) —
-um túnel (Cloudflare Tunnel, Tailscale) ou qualquer PaaS resolve:
+Com o Mac ligado e na mesma rede Wi-Fi, abra no celular o endereço que o
+`iniciar.command` imprime (algo como `http://192.168.0.10:5000`) →
+**Adicionar à tela de início**. Vira app com ícone próprio e tela cheia.
+
+Uma limitação a saber: por HTTP em rede local a **câmera não abre** (navegador
+só libera em contexto seguro), então a tela de foto não funciona assim — o
+resto funciona. Para ter a câmera e usar fora de casa é preciso HTTPS, via
+túnel (Cloudflare Tunnel, Tailscale) ou qualquer PaaS:
 
 ```bash
 gunicorn -w 2 -b 0.0.0.0:8000 run:app
@@ -169,6 +206,7 @@ app/
     normalize.py         validação de entrada       ← regra pura, testada
     pdf_text.py          PDF → texto (pdfplumber)
     claude_extract.py    visão (recibo) + categoria em lote
+iniciar.command          sobe tudo no Mac com um clique
 scripts/
   importar_planilha.py   carrega a planilha .xlsx para dentro do orçamento
 static/

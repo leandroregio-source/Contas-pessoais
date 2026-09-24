@@ -5,6 +5,12 @@ venv/
 .env
 *.sqlite3
 *.db
+
+# Planilhas e faturas: dado financeiro pessoal, nunca vai para o repositório
+*.xlsx
+*.xls
+*.pdf
+!docs/**/*.pdf
 instance/
 .pytest_cache/
 .DS_Store
